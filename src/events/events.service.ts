@@ -3,16 +3,41 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Event } from './entities/event.entity';
 import { CreateEventDto } from './dto/create-event.dto';
+import { Attendee } from '../attendees/entities/attendee.entity';
 
 @Injectable()
 export class EventsService {
   constructor(
     @InjectRepository(Event)
     private eventsRepository: Repository<Event>,
+    @InjectRepository(Attendee)
+    private attendeesRepository: Repository<Attendee>,
   ) {}
 
   async findAll(): Promise<Event[]> {
-    return this.eventsRepository.find();
+    const events = await this.eventsRepository.find();
+
+    // Calculate real totals from attendee table for each event
+    const eventsWithRealTotals = await Promise.all(
+      events.map(async (event) => {
+        const [totalRegistered, totalCheckedIn] = await Promise.all([
+          this.attendeesRepository.count({
+            where: { eventId: event.id },
+          }),
+          this.attendeesRepository.count({
+            where: { eventId: event.id, checkedIn: true },
+          }),
+        ]);
+
+        return {
+          ...event,
+          registeredCount: totalRegistered,
+          checkedInCount: totalCheckedIn,
+        };
+      }),
+    );
+
+    return eventsWithRealTotals;
   }
 
   async findOne(id: number): Promise<Event> {
@@ -20,7 +45,22 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
-    return event;
+
+    // Calculate real totals from attendee table
+    const [totalRegistered, totalCheckedIn] = await Promise.all([
+      this.attendeesRepository.count({
+        where: { eventId: event.id },
+      }),
+      this.attendeesRepository.count({
+        where: { eventId: event.id, checkedIn: true },
+      }),
+    ]);
+
+    return {
+      ...event,
+      registeredCount: totalRegistered,
+      checkedInCount: totalCheckedIn,
+    };
   }
 
   async create(createEventDto: CreateEventDto): Promise<Event> {

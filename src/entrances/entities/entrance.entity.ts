@@ -30,6 +30,9 @@ export class Entrance {
   @Column({ default: 0 })
   scannedCount: number;
 
+  @Column({ nullable: true })
+  maxCapacity: number;
+
   @Column({ nullable: true, type: 'timestamp' })
   lastScanTime: Date;
 
