@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { Attendee } from '../../attendees/entities/attendee.entity';
 
 @Entity()
 export class Event {
@@ -38,6 +39,9 @@ export class Event {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @OneToMany(() => Attendee, (attendee) => attendee.event)
+  attendees: Attendee[];
 
   @CreateDateColumn()
   createdAt: Date;
