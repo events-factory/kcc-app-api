@@ -14,22 +14,22 @@ export class Attendee {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ length: 50 })
   badgeId: string;
 
-  @Column()
+  @Column({ length: 100 })
   firstName: string;
 
-  @Column()
+  @Column({ length: 100 })
   lastName: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, length: 191 })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, length: 20 })
   phone: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, length: 191 })
   organization: string;
 
   @ManyToOne(() => Event)
@@ -45,7 +45,7 @@ export class Attendee {
   @Column({ nullable: true })
   checkInTime: Date;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, length: 100 })
   entrance: string;
 
   @CreateDateColumn()

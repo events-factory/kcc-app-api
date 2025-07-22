@@ -14,6 +14,10 @@ import { AttendeesService } from './attendees.service';
 import { Attendee } from './entities/attendee.entity';
 import { RegisterAttendeeDto } from './dto/register-attendee.dto';
 import { CheckInAttendeeDto } from './dto/check-in-attendee.dto';
+import {
+  BulkUploadAttendeesDto,
+  BulkUploadResult,
+} from './dto/bulk-upload-attendees.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -136,6 +140,22 @@ export class AttendeesController {
         'Failed to delete attendee',
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post('bulk-upload')
+  async bulkUpload(
+    @Body() bulkUploadDto: BulkUploadAttendeesDto,
+  ): Promise<BulkUploadResult> {
+    try {
+      return await this.attendeesService.bulkUpload(bulkUploadDto);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Bulk upload failed', HttpStatus.BAD_REQUEST);
     }
   }
 }
