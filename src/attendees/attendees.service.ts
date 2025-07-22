@@ -8,6 +8,10 @@ import { Repository } from 'typeorm';
 import { Attendee } from './entities/attendee.entity';
 import { RegisterAttendeeDto } from './dto/register-attendee.dto';
 import { CheckInAttendeeDto } from './dto/check-in-attendee.dto';
+import {
+  BulkUploadAttendeesDto,
+  BulkUploadResult,
+} from './dto/bulk-upload-attendees.dto';
 import { EventsService } from '../events/events.service';
 
 @Injectable()
@@ -180,5 +184,106 @@ export class AttendeesService {
       },
       take: limit,
     });
+  }
+
+  async bulkUpload(
+    bulkUploadDto: BulkUploadAttendeesDto,
+  ): Promise<BulkUploadResult> {
+    const { attendees, eventId, skipDuplicates = false } = bulkUploadDto;
+
+    // Check if event exists and get attendee limit
+    const event = await this.eventsService.findOne(eventId);
+
+    const successfulAttendees: Attendee[] = [];
+    const errors: Array<{
+      index: number;
+      attendee: RegisterAttendeeDto;
+      error: string;
+    }> = [];
+    let duplicatesSkipped = 0;
+
+    for (let i = 0; i < attendees.length; i++) {
+      const attendeeDto = attendees[i];
+
+      try {
+        // Check if event has reached attendee limit
+        if (
+          event.attendeeLimit > 0 &&
+          event.registeredCount + successfulAttendees.length >=
+            event.attendeeLimit
+        ) {
+          errors.push({
+            index: i,
+            attendee: attendeeDto,
+            error: 'Event has reached its attendee limit',
+          });
+          continue;
+        }
+
+        // Check for duplicate email in this event
+        const existingAttendee = await this.attendeesRepository.findOne({
+          where: {
+            email: attendeeDto.email,
+            eventId: eventId,
+          },
+        });
+
+        if (existingAttendee) {
+          if (skipDuplicates) {
+            duplicatesSkipped++;
+            continue;
+          } else {
+            errors.push({
+              index: i,
+              attendee: attendeeDto,
+              error: 'Email is already registered for this event',
+            });
+            continue;
+          }
+        }
+
+        // Generate badge ID and create attendee
+        const badgeId = this.generateBadgeId();
+        const attendee = this.attendeesRepository.create({
+          ...attendeeDto,
+          eventId,
+          badgeId,
+        });
+
+        const savedAttendee = await this.attendeesRepository.save(attendee);
+        successfulAttendees.push(savedAttendee);
+      } catch (error: unknown) {
+        errors.push({
+          index: i,
+          attendee: attendeeDto,
+          error:
+            error instanceof Error ? error.message : 'Unknown error occurred',
+        });
+      }
+    }
+
+    // Update the event's registered count for successful registrations only
+    if (successfulAttendees.length > 0) {
+      for (let j = 0; j < successfulAttendees.length; j++) {
+        await this.eventsService.incrementRegisteredCount(eventId);
+      }
+    }
+
+    return {
+      success: {
+        count: successfulAttendees.length,
+        attendees: successfulAttendees,
+      },
+      errors: {
+        count: errors.length,
+        details: errors,
+      },
+      summary: {
+        totalProcessed: attendees.length,
+        successfulRegistrations: successfulAttendees.length,
+        failedRegistrations: errors.length,
+        duplicatesSkipped,
+      },
+    };
   }
 }

@@ -6,19 +6,20 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { Attendee } from '../../attendees/entities/attendee.entity';
 
 @Entity()
 export class Event {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ length: 191 })
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'text' })
   description: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, length: 191 })
   location: string;
 
   @Column({ type: 'date' })
@@ -38,6 +39,9 @@ export class Event {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @OneToMany(() => Attendee, (attendee) => attendee.event)
+  attendees: Attendee[];
 
   @CreateDateColumn()
   createdAt: Date;
